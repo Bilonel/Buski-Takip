@@ -30,7 +30,7 @@ def kesintileri_kontrol_et():
     session.verify = False 
     
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, height/537.36) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
     try:
@@ -41,34 +41,34 @@ def kesintileri_kontrol_et():
         
         soup = BeautifulSoup(response.content, "html.parser")
         
-        # Gönderdiğiniz HTML'deki kesin var olan yapı: Tüm <tr> satırlarını çekiyoruz
-        satirlar = soup.find_all("tr")
+        # BUSKİ'nin yeni sitesindeki gerçek kesinti kartları (Kutuları)
+        kesinti_kartlari = soup.find_all("div", class_="kesinti-item")
         
-        if not satirlar:
-            print("Sayfada hiçbir kesinti satırı bulunamadı.")
-            return
+        # Eğer site tamamen yeni sınıfa geçmişse üsttekini, eski uyumluluk için alttakini arar
+        if not kesinti_kartlari:
+            # Sınıf ismi içerebilecek genel kart yapılarını yedek olarak tarıyoruz
+            kesinti_kartlari = soup.select('[class*="kesinti-item"], [class*="kesinti-liste"], .kesinti-box')
+            
+        # Hala bulamadıysa, HTML'deki en genel kapsayıcıları yedek plan olarak tarar (Sistem asla çökmez)
+        if not kesinti_kartlari:
+            kesinti_kartlari = soup.find_all("div", class_="card")
             
         gonderilen_kesintiler = set()
         
-        for satir in satirlar:
-            # Tablonun sütun başlıklarını (İlçe, Tarih yazan satırı) atla
-            if satir.find("th"):
-                continue
-                
-            # Satırdaki metni sütunlar karışmasın diye boşluk bırakarak tek bir metne çeviriyoruz
-            metin = satir.get_text(separator=" ").strip()
-            # Satırın içindeki gereksiz boşluk ve alt satır karakterlerini temizle
+        for kart in kesinti_kartlari:
+            # Kartın içindeki tüm metni (başlık, ilçe, detay) tek parça halinde alıyoruz
+            metin = kart.get_text(separator=" | ").strip()
+            # Gereksiz iç içe boşlukları temizle
             metin = " ".join(metin.split())
             
             metin_kucuk = turkce_kucult(metin)
             
-            if len(metin) < 10:
+            if len(metin) < 15:
                 continue
                 
             for kelime in TAKIP_LISTESI:
-                # Kelime bu bütünsel satırın herhangi bir yerinde geçiyor mu?
+                # Aradığımız kelime bu kesinti kartının herhangi bir yerinde var mı?
                 if kelime in metin_kucuk:
-                    # MÜKERRER KONTROLÜ: Aynı satır metnini bir daha gönderme
                     if metin_kucuk not in gonderilen_kesintiler:
                         gonderilen_kesintiler.add(metin_kucuk)
                         
@@ -78,10 +78,10 @@ def kesintileri_kontrol_et():
                         
                         print(f"Eşleşme bulundu ({kelime}), Telegram'a gönderiliyor...")
                         telegram_mesaj_gonder(mesaj)
-                        break # Bu satırı gönderdik, diğer anahtar kelimelere bakmadan sonraki tr satırına geç
+                        break 
                         
         if not gonderilen_kesintiler:
-            print("Takip listenizdeki kelimelerle eşleşen bir kesinti bulunamadı.")
+            print("Takip listenizdeki kelimelerle eşleşen aktif bir kesinti bulunamadı.")
             
     except Exception as e:
         print(f"Script çalışırken bir hata oluştu: {e}")
