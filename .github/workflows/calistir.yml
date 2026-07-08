@@ -1,0 +1,26 @@
+name: BUSKI Kesinti Kontrol Sistemi
+
+on:
+  schedule:
+    # Her gün Türkiye saatiyle sabah 08:30'da çalışır (UTC saati kullanıldığı için 3 saat geri yazılır: 05:30)
+    - cron: '30 5 * * *'
+  workflow_dispatch: # İstediğiniz zaman GitHub sitesinden "Run" butonuna basarak elle de çalıştırabilmeniz için
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Depodaki Kodları Çek
+      uses: actions/checkout@v3
+
+    - name: Python Kurulumunu Hazırla
+      uses: actions/setup-python@v4
+      with:
+        python-node: '3.10'
+
+    - name: Gerekli Kütüphaneleri Yükle
+      run: |
+        pip install -r requirements.txt
+
+    - name: Scripti Çalıştır
+      run: python main.py
