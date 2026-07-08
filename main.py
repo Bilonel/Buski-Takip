@@ -1,15 +1,11 @@
-
-# BUSKİ Günlük Kesintiler Sayfası URL'si
-URL = "https://www.buski.gov.tr/gunluk-su-kesintileri"
-
 import requests
 from bs4 import BeautifulSoup
 
 TELEGRAM_TOKEN = "8300011544:AAHFan1w4HjWbDKqoLcTHM3CfHY4HukgeEk"
 CHAT_ID = "@BURSASUKESINTIBOTU"
 
-# Takip etmek istediğiniz kelime listesi (Büyük harfle yazın)
-TAKIP_LISTESI = ["NİLÜFER", "GÖRÜKLE", "nilüfer"]
+# Takip listesini tamamen KÜÇÜK HARF ile yazın (Sistem otomatik eşleştirecek)
+TAKIP_LISTESI = ["nilüfer", "görükle"]
 
 # BUSKİ Günlük Kesintiler Sayfası URL'si
 URL = "https://www.buski.gov.tr/gunluk-su-kesintileri"
@@ -26,6 +22,10 @@ def telegram_mesaj_gonder(mesaj):
     except Exception as e:
         print(f"Telegram mesajı gönderilemedi: {e}")
 
+def turkce_kucult(metin):
+    # Türkçe karakterlerin küçük/büyük harf dönüşüm hatasını engelleyen fonksiyon
+    return metin.replace('I', 'ı').replace('İ', 'i').lower()
+
 def kesintileri_kontrol_et():
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -39,35 +39,30 @@ def kesintileri_kontrol_et():
         
         soup = BeautifulSoup(response.content, "html.parser")
         
-        # Sayfadaki tüm satırları veya kesinti bloklarını tarıyoruz
         satirlar = soup.find_all(["tr", "div", "p"])
-        
-        # Daha önce gönderilen mesajların mükerrer (tekrar) olmaması için küme kullanıyoruz
         gonderilen_kesintiler = set()
         
         for satir in satirlar:
             metin = satir.get_text().strip()
-            metin_buyuk = metin.upper()
+            # Siteden gelen metni Türkçe kurallarına göre küçük harfe çeviriyoruz
+            metin_kucuk = turkce_kucult(metin)
             
-            # Eğer satır boşsa veya çok kısaysa atla
             if len(metin) < 10:
                 continue
                 
-            # Takip listemizdeki kelimelerden BİRİ BİLE bu satırda geçiyor mu?
             for kelime in TAKIP_LISTESI:
-                if kelime in metin_buyuk:
-                    # Aynı kesinti satırını tekrar tekrar göndermemek için kontrol
+                # Hem aranan kelime hem site metni küçük harf olduğu için kusursuz eşleşir
+                if kelime in metin_kucuk:
                     if metin not in gonderilen_kesintiler:
                         gonderilen_kesintiler.add(metin)
                         
-                        # Telefonunuza gelecek mesajın formatı
                         mesaj = f"🚨 *BUSKİ SU KESİNTİSİ UYARISI!*\n\n" \
-                                f"🔍 *Eşleşen Kelime:* `{kelime}`\n\n" \
+                                f"🔍 *Eşleşen Kelime:* `{kelime.upper()}`\n\n" \
                                 f"📝 *Kesinti Detayı:*\n{metin}"
                         
                         print(f"Eşleşme bulundu ({kelime}), Telegram'a gönderiliyor...")
                         telegram_mesaj_gonder(mesaj)
-                        break # Bu satır için diğer kelimeleri kontrol etmeye gerek yok, bir sonraki satıra geç
+                        break 
                         
         if not gonderilen_kesintiler:
             print("Takip listenizdeki kelimelerle eşleşen bir kesinti bulunamadı.")
