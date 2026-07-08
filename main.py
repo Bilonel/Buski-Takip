@@ -41,44 +41,36 @@ def kesintileri_kontrol_et():
         
         soup = BeautifulSoup(response.content, "html.parser")
         
-        # BUSKİ'nin yeni sitesindeki gerçek kesinti kartları (Kutuları)
-        kesinti_kartlari = soup.find_all("div", class_="kesinti-item")
+        # Etiket bağımlılığını tamamen kaldırıyoruz.
+        # Sayfadaki tüm yazıları satır satır parçalayarak listeye alıyoruz.
+        ham_satirlar = soup.get_text(separator="\n").split("\n")
         
-        # Eğer site tamamen yeni sınıfa geçmişse üsttekini, eski uyumluluk için alttakini arar
-        if not kesinti_kartlari:
-            # Sınıf ismi içerebilecek genel kart yapılarını yedek olarak tarıyoruz
-            kesinti_kartlari = soup.select('[class*="kesinti-item"], [class*="kesinti-liste"], .kesinti-box')
-            
-        # Hala bulamadıysa, HTML'deki en genel kapsayıcıları yedek plan olarak tarar (Sistem asla çökmez)
-        if not kesinti_kartlari:
-            kesinti_kartlari = soup.find_all("div", class_="card")
-            
         gonderilen_kesintiler = set()
         
-        for kart in kesinti_kartlari:
-            # Kartın içindeki tüm metni (başlık, ilçe, detay) tek parça halinde alıyoruz
-            metin = kart.get_text(separator=" | ").strip()
-            # Gereksiz iç içe boşlukları temizle
-            metin = " ".join(metin.split())
+        for ham_satir in ham_satirlar:
+            # Satır içi gereksiz boşlukları temizle
+            satir = " ".join(ham_satir.split()).strip()
             
-            metin_kucuk = turkce_kucult(metin)
-            
-            if len(metin) < 15:
+            # Çok kısa veya alakasız menü başlıklarını ele (Kesinti açıklamaları genelde uzundur)
+            if len(satir) < 20:
                 continue
                 
+            satir_kucuk = turkce_kucult(satir)
+            
             for kelime in TAKIP_LISTESI:
-                # Aradığımız kelime bu kesinti kartının herhangi bir yerinde var mı?
-                if kelime in metin_kucuk:
-                    if metin_kucuk not in gonderilen_kesintiler:
-                        gonderilen_kesintiler.add(metin_kucuk)
+                # Aradığımız kelime (örn: "nilüfer") bu metin bloğunun içinde geçiyor mu?
+                if kelime in satir_kucuk:
+                    # MÜKERRER KONTROLÜ: Aynı açıklamayı tekrar tekrar gönderme
+                    if satir_kucuk not in gonderilen_kesintiler:
+                        gonderilen_kesintiler.add(satir_kucuk)
                         
                         mesaj = f"🚨 *BUSKİ SU KESİNTİSİ UYARISI!*\n\n" \
                                 f"🔍 *Eşleşen Kelime:* `{kelime.upper()}`\n\n" \
-                                f"📝 *Kesinti Detayı:*\n{metin}"
+                                f"📝 *Kesinti Detayı:*\n{satir}"
                         
                         print(f"Eşleşme bulundu ({kelime}), Telegram'a gönderiliyor...")
                         telegram_mesaj_gonder(mesaj)
-                        break 
+                        break # Bu satır için Telegram'a mesaj gitti, diğer kelimelere bakma
                         
         if not gonderilen_kesintiler:
             print("Takip listenizdeki kelimelerle eşleşen aktif bir kesinti bulunamadı.")
