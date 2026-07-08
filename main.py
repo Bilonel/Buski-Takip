@@ -1,12 +1,15 @@
+
+# BUSKİ Günlük Kesintiler Sayfası URL'si
+URL = "https://www.buski.gov.tr/gunluk-su-kesintileri"
+
 import requests
 from bs4 import BeautifulSoup
-import time
 
-# --- AYARLARINIZI BURAYA YAZIN ---
 TELEGRAM_TOKEN = "8300011544:AAHFan1w4HjWbDKqoLcTHM3CfHY4HukgeEk"
 CHAT_ID = "@BURSASUKESINTIBOTU"
-HEDEF_ILCE = "NİLÜFER"       # Küçük/Büyük harf duyarlılığı için büyük harf yazın
-HEDEF_MAHALLE = "Görükle"    # Aramak istediğiniz mahalle adı
+
+# Takip etmek istediğiniz kelime listesi (Büyük harfle yazın)
+TAKIP_LISTESI = ["NİLÜFER", "GÖRÜKLE", "nilüfer"]
 
 # BUSKİ Günlük Kesintiler Sayfası URL'si
 URL = "https://www.buski.gov.tr/gunluk-su-kesintileri"
@@ -18,7 +21,10 @@ def telegram_mesaj_gonder(mesaj):
         "text": mesaj,
         "parse_mode": "Markdown"
     }
-    requests.post(telegram_url, json=payload)
+    try:
+        requests.post(telegram_url, json=payload, timeout=10)
+    except Exception as e:
+        print(f"Telegram mesajı gönderilemedi: {e}")
 
 def kesintileri_kontrol_et():
     headers = {
@@ -26,34 +32,49 @@ def kesintileri_kontrol_et():
     }
     
     try:
-        response = requests.get(URL, headers=headers, timeout=10)
+        response = requests.get(URL, headers=headers, timeout=15)
         if response.status_code != 200:
+            print(f"BUSKİ sitesine erişilemedi. Durum kodu: {response.status_code}")
             return
         
         soup = BeautifulSoup(response.content, "html.parser")
         
-        # BUSKİ sitesindeki kesinti tablosunu veya listesini buluyoruz
-        # Not: Site yapısı değiştikçe "table" veya "div" sınıfları güncellenebilir.
-        kesinti_elementleri = soup.find_all(["tr", "div", "p"]) 
+        # Sayfadaki tüm satırları veya kesinti bloklarını tarıyoruz
+        satirlar = soup.find_all(["tr", "div", "p"])
         
-        for element in kesinti_elementleri:
-            metin = element.get_text().upper()
+        # Daha önce gönderilen mesajların mükerrer (tekrar) olmaması için küme kullanıyoruz
+        gonderilen_kesintiler = set()
+        
+        for satir in satirlar:
+            metin = satir.get_text().strip()
+            metin_buyuk = metin.upper()
             
-            # Sizin bölgenizle ilgili bir eşleşme var mı kontrolü
-            if HEDEF_ILCE in metin and HEDEF_MAHALLE in metin:
-                kesinti_detayi = element.get_text().strip()
+            # Eğer satır boşsa veya çok kısaysa atla
+            if len(metin) < 10:
+                continue
                 
-                # Telefonunuza gelecek mesaj formatı
-                mesaj = f"🚨 *BUSKİ PLANLI SU KESİNTİSİ UYARISI!*\n\n📍 Bölge: {HEDEF_ILCE} / {HEDEF_MAHALLE}\n📝 Detay: {kesinti_detayi}"
-                
-                print("Eşleşme bulundu, telefona gönderiliyor...")
-                telegram_mesaj_gonder(mesaj)
-                return # Aynı gün mükerrer mesaj gelmesin diye durduruyoruz
-                
+            # Takip listemizdeki kelimelerden BİRİ BİLE bu satırda geçiyor mu?
+            for kelime in TAKIP_LISTESI:
+                if kelime in metin_buyuk:
+                    # Aynı kesinti satırını tekrar tekrar göndermemek için kontrol
+                    if metin not in gonderilen_kesintiler:
+                        gonderilen_kesintiler.add(metin)
+                        
+                        # Telefonunuza gelecek mesajın formatı
+                        mesaj = f"🚨 *BUSKİ SU KESİNTİSİ UYARISI!*\n\n" \
+                                f"🔍 *Eşleşen Kelime:* `{kelime}`\n\n" \
+                                f"📝 *Kesinti Detayı:*\n{metin}"
+                        
+                        print(f"Eşleşme bulundu ({kelime}), Telegram'a gönderiliyor...")
+                        telegram_mesaj_gonder(mesaj)
+                        break # Bu satır için diğer kelimeleri kontrol etmeye gerek yok, bir sonraki satıra geç
+                        
+        if not gonderilen_kesintiler:
+            print("Takip listenizdeki kelimelerle eşleşen bir kesinti bulunamadı.")
+            
     except Exception as e:
-        print(f"Hata oluştu: {e}")
+        print(f"Script çalışırken bir hata oluştu: {e}")
 
-# Sistem günde 2 kez (Örn: Sabah 09:00 ve Akşam 18:00 gibi) kontrol edecek şekilde döngüye alınabilir
 if __name__ == "__main__":
-    print("BUSKİ Takip Sistemi Başlatıldı...")
+    print("BUSKİ Çoklu Kelime Takip Sistemi Başlatıldı...")
     kesintileri_kontrol_et()
