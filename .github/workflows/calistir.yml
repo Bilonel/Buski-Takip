@@ -2,21 +2,25 @@ name: BUSKI Kesinti Kontrol Sistemi
 
 on:
   schedule:
-    # Her gün Türkiye saatiyle sabah 08:30'da çalışır (UTC saati kullanıldığı için 3 saat geri yazılır: 05:30)
     - cron: '30 5 * * *'
-  workflow_dispatch: # İstediğiniz zaman GitHub sitesinden manuel çalıştırmak için
+  workflow_dispatch:
 
 jobs:
   run-script:
     runs-on: ubuntu-latest
+    
+    # GitHub'ın kodları depoya geri yazabilmesi için gerekli izin yetkisi
+    permissions:
+      contents: write
+      
     steps:
     - name: Depodaki Kodları Çek
-      uses: actions/checkout@v4 # v3'ten v4'e yükseltildi (Node.js hatasını çözer)
+      uses: actions/checkout@v4
 
     - name: Python Kurulumunu Hazırla
-      uses: actions/setup-python@v5 # v4'ten v5'e yükseltildi
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.10' # Hatalı olan 'python-node' kısmı 'python-version' olarak düzeltildi
+        python-version: '3.10'
 
     - name: Gerekli Kütüphaneleri Yükle
       run: |
@@ -24,3 +28,12 @@ jobs:
 
     - name: Scripti Çalıştır
       run: python main.py
+
+    # EĞER HAFIZA DOSYASI GÜNCELLENDİYSE GITHUB'A GERİ YÜKLE (COMMIT & PUSH)
+    - name: Hafızayı GitHub Deposuna Kaydet
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action Bot"
+        git add kesinti_hafizasi.txt || true
+        git commit -m "Kalıcı hafıza güncellendi [skip ci]" || echo "Değişiklik yok."
+        git push origin main || echo "Push edilecek yeni veri yok."
