@@ -1,10 +1,14 @@
 import requests
 from bs4 import BeautifulSoup
+import urllib3
+
+# SSL Sertifikası uyarılarını log ekranında gizlemek için
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 TELEGRAM_TOKEN = "8300011544:AAHFan1w4HjWbDKqoLcTHM3CfHY4HukgeEk"
 CHAT_ID = "@BURSASUKESINTIBOTU"
 
-# Takip listesini tamamen KÜÇÜK HARF ile yazın (Sistem otomatik eşleştirecek)
+# Takip listesini tamamen KÜÇÜK HARF ile yazın
 TAKIP_LISTESI = ["nilüfer", "görükle"]
 
 # BUSKİ Günlük Kesintiler Sayfası URL'si
@@ -23,7 +27,6 @@ def telegram_mesaj_gonder(mesaj):
         print(f"Telegram mesajı gönderilemedi: {e}")
 
 def turkce_kucult(metin):
-    # Türkçe karakterlerin küçük/büyük harf dönüşüm hatasını engelleyen fonksiyon
     return metin.replace('I', 'ı').replace('İ', 'i').lower()
 
 def kesintileri_kontrol_et():
@@ -32,7 +35,8 @@ def kesintileri_kontrol_et():
     }
     
     try:
-        response = requests.get(URL, headers=headers, timeout=15)
+        # !!! KRİTİK DEĞİŞİKLİK: verify=False eklenerek SSL hatası bypass edildi !!!
+        response = requests.get(URL, headers=headers, timeout=15, verify=False)
         if response.status_code != 200:
             print(f"BUSKİ sitesine erişilemedi. Durum kodu: {response.status_code}")
             return
@@ -44,14 +48,12 @@ def kesintileri_kontrol_et():
         
         for satir in satirlar:
             metin = satir.get_text().strip()
-            # Siteden gelen metni Türkçe kurallarına göre küçük harfe çeviriyoruz
             metin_kucuk = turkce_kucult(metin)
             
             if len(metin) < 10:
                 continue
                 
             for kelime in TAKIP_LISTESI:
-                # Hem aranan kelime hem site metni küçük harf olduğu için kusursuz eşleşir
                 if kelime in metin_kucuk:
                     if metin not in gonderilen_kesintiler:
                         gonderilen_kesintiler.add(metin)
