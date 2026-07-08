@@ -4,19 +4,19 @@ on:
   schedule:
     # Her gün Türkiye saatiyle sabah 08:30'da çalışır (UTC saati kullanıldığı için 3 saat geri yazılır: 05:30)
     - cron: '30 5 * * *'
-  workflow_dispatch: # İstediğiniz zaman GitHub sitesinden "Run" butonuna basarak elle de çalıştırabilmeniz için
+  workflow_dispatch: # İstediğiniz zaman GitHub sitesinden manuel çalıştırmak için
 
 jobs:
   run-script:
     runs-on: ubuntu-latest
     steps:
     - name: Depodaki Kodları Çek
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4 # v3'ten v4'e yükseltildi (Node.js hatasını çözer)
 
     - name: Python Kurulumunu Hazırla
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5 # v4'ten v5'e yükseltildi
       with:
-        python-node: '3.10'
+        python-version: '3.10' # Hatalı olan 'python-node' kısmı 'python-version' olarak düzeltildi
 
     - name: Gerekli Kütüphaneleri Yükle
       run: |
